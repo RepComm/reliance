@@ -1,0 +1,11 @@
+{
+  "name": "demo",
+  "dependencies": {
+    "repcomm/package": {
+      "method": "github"
+    },
+    "repcomm/exponent-ts": {
+      "method": "github"
+    }
+  }
+}
