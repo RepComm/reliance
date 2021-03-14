@@ -1,6 +1,7 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import * as path from "path";
+import * as readline from "readline";
 
 import { Method, MethodJson, RelianceJson } from "./method.js";
 
@@ -71,16 +72,19 @@ function getMethod(name: string): Promise<Method> {
   })
 }
 
-/**Get the workspace reliance.json file path*/
-function getRelianceJsonFile (): string {
-  return path.join( getWorkspaceDir(), "reliance.json");
+/**Get the workspace reliance.json file path
+ * If fname is not specified, it defaults to `reliance.json`
+ */
+function getRelianceJsonFile (fname?: string): string {
+  if (!fname) fname = "reliance.json";
+  return path.join( getWorkspaceDir(), fname);
 }
 /**Load the workspace reliance.json file as json*/
-function getRelianceJson(): Promise<RelianceJson> {
+function getRelianceJson(fname?: string): Promise<RelianceJson> {
   return new Promise(async (_resolve, _reject) => {
     let result: RelianceJson;
     try {
-      result = readFileSyncJson<RelianceJson>(getRelianceJsonFile());
+      result = readFileSyncJson<RelianceJson>(getRelianceJsonFile(fname));
     } catch (ex) {
       _reject(ex);
       return;
@@ -89,10 +93,10 @@ function getRelianceJson(): Promise<RelianceJson> {
   });
 }
 /**Save the workspace reliance.json file*/
-function setRelianceJson (json: RelianceJson): Promise<boolean> {
+function setRelianceJson (json: RelianceJson, fname?: string): Promise<boolean> {
   return new Promise(async (_resolve, _reject)=>{
     try {
-      writeFileSyncJson (getRelianceJsonFile(), json);
+      writeFileSyncJson (getRelianceJsonFile(fname), json);
     } catch (ex) {
       _reject(ex);
       return;
@@ -129,10 +133,72 @@ function setSettings (settings: Settings): Promise<boolean> {
   });
 }
 
+interface FlagArguments {
+  /** -pkg=somefile.json */
+  pkg: string;
+  /** -method=github */
+  method: string;
+}
+
+async function initPackage (flagArgs: FlagArguments): Promise<void> {
+  return new Promise(async (_resolve, _reject)=>{
+    let json: RelianceJson = {
+      name: "undefined",
+      dependencies: {}
+    };
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question("What is the package name?\n> ", (answer) => {
+      // TODO: Log the answer in a database
+      // console.log(`set name > ${answer}`);
+      json.name = answer;
+
+      rl.question(`package file will be ${flagArgs.pkg}, you can change it or leave it (enter)\n> `, (answer) => {
+        if (answer) flagArgs.pkg = answer;
+        if (!flagArgs.pkg.endsWith(".json")) {
+          flagArgs.pkg += ".json";
+        }
+
+        rl.close();
+        log(`Writing ${flagArgs.pkg}`)
+        setRelianceJson(json, flagArgs.pkg);
+        log("Done, exiting. Have a good one!");
+        _resolve();
+        process.exit(0);
+
+      });
+    });
+  });
+}
+
 /**Main program*/
 async function main() {
   //Get command line arguments
   let args = process.argv;
+  
+  //Let user know we're loading the settings, then do it
+  // log("Loading settings");
+  const settings = await getSettings();
+
+  let flagArgs: FlagArguments = {
+    pkg: "reliance.json",
+    method: settings.defaultMethod
+  };
+
+  for (let arg of args) {
+    if (arg.startsWith("-")) {
+      arg = arg.substring(1); //get rid of hyphen
+      let [namedArg, value] = arg.split("=");
+      if (!value) {
+        flagArgs[ namedArg ] = true;
+      } else {
+        flagArgs[ namedArg ] = value;
+      }
+    }
+  }
 
   //Let user know where things are
   log("Reliance installed at", getRelianceDir());
@@ -140,18 +206,22 @@ async function main() {
 
   //We need at least 3 arguments, where 3rd is the actual command we process
   if (args.length < 3) terminate("Not enough arguments to run anything");
-  let primaryCommand = args[2];
+  let primaryCommand = args[2].toLowerCase();
 
-  //Let user know we're loading the settings, then do it
-  log("Loading settings");
-  const settings = await getSettings();
+  if (primaryCommand === "init") {
+    await initPackage(flagArgs);
+  }
 
   //Grab the default method (overwrite if they specify another)
-  const method = await getMethod(settings.defaultMethod);
+  const method = await getMethod(flagArgs.method);
+  if (!method) {
+    terminate(`Could not load method by id ${flagArgs.method}`);
+    return;
+  }
 
   //Load up the user's reliance.json package file
-  log("Loading local reliance.json");
-  getRelianceJson().then(async (targetPackage) => {
+  log(`Loading local package ${flagArgs.pkg}`);
+  getRelianceJson(flagArgs.pkg).then(async (targetPackage) => {
     if (!targetPackage.dependencies) targetPackage.dependencies = {};
 
     let depsList = Object.keys(targetPackage.dependencies);
@@ -165,32 +235,33 @@ async function main() {
         if (args.length < 4) terminate(`Not enough arguments for install`);
         let packageName = args[3];
         
-        log(`installing ${packageName}`);
-
         if (isDependencyInstalled(targetPackage, packageName)) {
           terminate(`Package "${packageName}" is already installed`);
           return;
         }
 
-        if (!method) {
-          terminate("Cannot install package, no method specified and no default method is set");
-          return;
-        }
+        log(`installing ${packageName} with method ${flagArgs.method}`);
 
         let installPackage = await method.getPackage(packageName);
 
-        log("Installing", installPackage);
+        // log("Installing", installPackage);
         targetPackage.dependencies[packageName] = {
           method: method.getMethodName()
         };
         setRelianceJson(targetPackage);
         break;
       
+
       default:
         log(`Unkown command "${primaryCommand}"`);
         break;
     }
   }).catch((reason) => {
+    if (flagArgs.pkg) {
+      error(`Could not acquire local package file specified as ${flagArgs.pkg}, does it exist?`);
+    } else {
+      error(`Could not acquire local package file reliance.json, do you need to specify another file name with -pkg=somefile.json ?`);
+    }
     error(reason);
     return;
   });
