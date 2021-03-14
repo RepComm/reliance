@@ -1,4 +1,8 @@
 {
   "name": "demodependency",
-  "dependencies": {}
+  "dependencies": {
+    "repcomm/reliance": {
+      "method": "github"
+    }
+  }
 }

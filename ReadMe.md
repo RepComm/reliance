@@ -22,6 +22,9 @@ reliance method default get
 
 Options
 ```bash
-# explicity use a specific method
--method="wget-package"
+# explicity use a specific source method
+-method=wget
+
+# explicity use a specific package file (instead of reliance.json)
+-pkg=somefile.json
 ```
