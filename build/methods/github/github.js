@@ -8,19 +8,21 @@ export default class Github extends Method {
   getPackage(src) {
     var _this = this;
 
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async function (_resolve, _reject) {
       let url = await _this.resolve(src);
       let response = await fetch(url);
       let result = await response.json();
-      resolve(result);
+
+      _resolve(result);
     });
   }
 
   resolve(src) {
-    return new Promise(async function (resolve, reject) {
-      if (!src) reject(`Cannot resolve package source "${src}"`);
+    return new Promise(async function (_resolve, _reject) {
+      if (!src) _reject(`Cannot resolve package source "${src}"`);
       let url = `https://raw.githubusercontent.com/${src}/master/package.json`;
-      resolve(url);
+
+      _resolve(url);
     });
   }
 

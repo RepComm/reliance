@@ -4,7 +4,7 @@
 ```bash
 # installing a package
 reliance install <packagename> [opts]
-reliance i packagename <packagename> [opts]
+reliance i <packagename> [opts]
 
 # uninstalling a package
 reliance uninstall <packagename> [opts]

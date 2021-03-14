@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Reliance package manager",
   "type": "module",
+  "module": "esnext",
   "main": "build/index.js",
   "repository": {
     "type": "git",

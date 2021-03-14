@@ -1,6 +1,24 @@
-import { readFileSync, writeFileSync } from "fs"; // import { resolve } from "path";
+import { readFileSync, writeFileSync } from "fs";
+import * as path from "path";
+const decoder = new TextDecoder(); //__dirname fix for node es module mode
 
-const decoder = new TextDecoder();
+const moduleURL = new URL(import.meta.url);
+
+const __dirname = path.dirname(moduleURL.pathname);
+
+const _cwdname = path.resolve(".");
+/**Get the reliance install directory*/
+
+
+function getRelianceDir() {
+  return __dirname;
+}
+/**Get the current working dir where we execute commands from*/
+
+
+function getWorkspaceDir() {
+  return _cwdname;
+}
 
 function log(...args) {
   console.log("[reliance]", ...args);
@@ -17,50 +35,49 @@ function readFileSyncJson(fpath) {
   return json;
 }
 
+function writeFileSyncJson(fpath, json) {
+  let text = JSON.stringify(json, undefined, 2);
+  writeFileSync(fpath, text);
+}
+
 function terminate(...msgs) {
   error(...msgs);
   process.exit(-1);
 }
 
+function getMethodsDir() {
+  return path.join(getRelianceDir(), "methods");
+}
+
+function getMethodDir(name) {
+  return path.join(getMethodsDir(), name);
+}
+
 function getMethod(name) {
-  return new Promise(async (resolve, reject) => {
-    let dirPkg = `./build/methods/${name}`;
-    let pkg = readFileSyncJson(`${dirPkg}/method.json`);
-    let dirMain = `./methods/${name}`;
-    let imports = await import(`${dirMain}/${pkg.main}`);
+  return new Promise(async (_resolve, _reject) => {
+    let dir = getMethodDir(name);
+    let pkg = readFileSyncJson(path.join(dir, "method.json"));
+    let imports = await import(path.join(dir, pkg.main));
     let methodClass = imports.default;
     let methodInstance = new methodClass();
-    resolve(methodInstance);
+
+    _resolve(methodInstance);
   });
 }
 
+function getRelianceJsonFile() {
+  return path.join(getWorkspaceDir(), "reliance.json");
+}
+
 function getRelianceJson() {
-  return new Promise(async (_resolve, reject) => {
-    let result = undefined;
-    let fpath = "./reliance.json"; // fpath = resolve(fpath);
-
-    let buffer;
+  return new Promise(async (_resolve, _reject) => {
+    let result;
 
     try {
-      buffer = readFileSync(fpath);
+      result = readFileSyncJson(getRelianceJsonFile());
     } catch (ex) {
-      reject(`Could not read file reliance.json : ${ex}`);
-      return;
-    }
+      _reject(ex);
 
-    let text;
-
-    try {
-      text = decoder.decode(buffer);
-    } catch (ex) {
-      reject(`Could not decode text of reliance.json : ${ex}`);
-      return;
-    }
-
-    try {
-      result = JSON.parse(text);
-    } catch (ex) {
-      reject(`Could not decode json of reliance.json ${ex}`);
       return;
     }
 
@@ -69,9 +86,17 @@ function getRelianceJson() {
 }
 
 function setRelianceJson(json) {
-  let fpath = "./reliance.json";
-  let text = JSON.stringify(json, undefined, 2);
-  writeFileSync(fpath, text);
+  return new Promise(async (_resolve, _reject) => {
+    try {
+      writeFileSyncJson(getRelianceJsonFile(), json);
+    } catch (ex) {
+      _reject(ex);
+
+      return;
+    }
+
+    _resolve(true);
+  });
 }
 
 function isDependencyInstalled(pkg, depname) {
@@ -79,15 +104,28 @@ function isDependencyInstalled(pkg, depname) {
   return dep != undefined || dep != null;
 }
 
+function getSettingsFile() {
+  return path.join(getRelianceDir(), "..", "settings.json");
+}
+
 function getSettings() {
-  return new Promise(async (resolve, reject) => {
-    let settings = readFileSyncJson("./settings.json");
-    resolve(settings);
+  return new Promise(async (_resolve, _reject) => {
+    let settings = readFileSyncJson(getSettingsFile());
+
+    _resolve(settings);
+  });
+}
+
+function setSettings(settings) {
+  return new Promise(async (_resolve, _reject) => {
+    writeFileSyncJson(getSettingsFile(), settings);
   });
 }
 
 async function main() {
   let args = process.argv;
+  log("Reliance installed at", getRelianceDir());
+  log("Running at workspace", getWorkspaceDir());
   if (args.length < 3) terminate("Not enough arguments to run anything");
   let primaryCommand = args[2];
   log("Loading settings");
