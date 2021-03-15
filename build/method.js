@@ -1,3 +1,4 @@
+/**A downloaded package in RAM to be saved on disk*/
 export class Method {
   constructor(name) {
     if (!name) throw `Name must be specified, got "${name}"`;
@@ -8,8 +9,12 @@ export class Method {
     return this.name;
   }
 
-  getPackage(srcPackageName) {
+  getPackage(srcPackageFileName) {
     throw `Method.getPackage was not implemented on subclass! ${this}`;
+  }
+
+  getPackageJson(srcPackageName) {
+    throw `Method.getPackageJson was not implemented on subclass! ${this}`;
   }
   /**Override this method in your subclass, do not call super.resolve
    * 

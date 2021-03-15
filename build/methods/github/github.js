@@ -9,8 +9,37 @@ export default class Github extends Method {
     var _this = this;
 
     return new Promise(async function (_resolve, _reject) {
-      let url = await _this.resolve(src);
-      let response = await fetch(url); // let text = await response.text();
+      let res = await _this.resolve(src);
+      let pkg = await _this.getPackageJson(src);
+      let result = {
+        name: res.name,
+        files: {},
+        pkgfname: res.remoteSrcPkgFname,
+        pkgjson: pkg
+      };
+      let remoteFile;
+
+      if (pkg.files) {
+        for (let file of pkg.files) {
+          remoteFile = `${res.remoteSrcDir}/${file}`; // console.log("Fetching file", file, "from", remoteFile);
+
+          console.log("fetching", file);
+          let resp = await fetch(remoteFile);
+          let data = await resp.arrayBuffer();
+          result.files[file] = data;
+        }
+      }
+
+      _resolve(result);
+    });
+  }
+
+  getPackageJson(src) {
+    var _this2 = this;
+
+    return new Promise(async function (_resolve, _reject) {
+      let res = await _this2.resolve(src);
+      let response = await fetch(`${res.remoteSrcDir}/${res.remoteSrcPkgFname}`); // let text = await response.text();
       // console.log(text);
       // let result = JSON.parse(text);
 
@@ -19,6 +48,11 @@ export default class Github extends Method {
       _resolve(result);
     });
   }
+  /**Resolves reliance.json file name
+   * In this method's case it resolves to
+   * a github url that can fetch the file
+   */
+
 
   resolve(src) {
     return new Promise(async function (_resolve, _reject) {
@@ -34,17 +68,30 @@ export default class Github extends Method {
       let branch = "master";
       if (parts.length > 2) branch = parts[2];
       let file = "reliance.json";
+      let fpath = undefined;
 
       if (parts.length > 3) {
-        let fileparts = parts.slice(3);
-        file = fileparts.join("/");
-      } //https://raw.githubusercontent.com/${user}/${repo}/${branch}/demodependency/reliance.json
+        let fileparts = parts.slice(3, -1);
+        fpath = fileparts.join("/");
+        file = fileparts[fileparts.length - 1];
+      } // console.log("fpath", fpath);
 
 
-      let url = `https://raw.githubusercontent.com/${user}/${repo}/${branch}/${file}`;
-      console.log(url);
+      let dir;
 
-      _resolve(url);
+      if (fpath) {
+        dir = `https://raw.githubusercontent.com/${user}/${repo}/${branch}/${fpath}`;
+      } else {
+        dir = `https://raw.githubusercontent.com/${user}/${repo}/${branch}`;
+      }
+
+      let result = {
+        name: src,
+        remoteSrcDir: dir,
+        remoteSrcPkgFname: file
+      };
+
+      _resolve(result);
     });
   }
 

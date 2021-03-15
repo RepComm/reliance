@@ -1,5 +1,5 @@
 
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import * as path from "path";
 import * as readline from "readline";
 
@@ -110,6 +110,10 @@ function isDependencyInstalled (pkg: RelianceJson, depname: string): boolean {
   return dep != undefined || dep != null;
 }
 
+function getDependenciesDir (): string {
+  return path.join(getWorkspaceDir(), "reliance");
+}
+
 /**A settings interface for reliance cli program*/
 interface Settings {
   /**The global default method for fetching sources*/
@@ -144,7 +148,8 @@ async function initPackage (flagArgs: FlagArguments): Promise<void> {
   return new Promise(async (_resolve, _reject)=>{
     let json: RelianceJson = {
       name: "undefined",
-      dependencies: {}
+      dependencies: {},
+      files: []
     };
     const rl = readline.createInterface({
       input: process.stdin,
@@ -242,16 +247,38 @@ async function main() {
 
         log(`installing ${packageName} with method ${flagArgs.method}`);
 
-        let installPackage = await method.getPackage(packageName);
-
-        // log("Installing", installPackage);
+        /*modify package entry first incase something goes wrong while
+         * downloading files, and the user wants to fix the resulting issue
+         * by using `reliance uninstall <pname>`
+         * 
+         * something we've learned from npm's faults
+         */
+        log("Adding dependency entry in", flagArgs.pkg);
         targetPackage.dependencies[packageName] = {
           method: method.getMethodName()
         };
         setRelianceJson(targetPackage);
-        break;
-      
+        
+        let pkgdata = await method.getPackage(packageName);
 
+        let writeDir = path.join(getDependenciesDir(), pkgdata.name);
+        mkdirSync(writeDir, { recursive: true });
+
+        let pkgpath = path.join(writeDir, pkgdata.pkgfname);
+        writeFileSyncJson(pkgpath, pkgdata.pkgjson);
+
+        let fnames = Object.keys(pkgdata.files);
+        let absFname: string;
+        let absDir: string;
+        for (let fname of fnames) {
+          absDir = path.join(writeDir, path.dirname(fname));
+          mkdirSync(absDir, { recursive: true });
+
+          absFname = path.join(writeDir, fname);
+          writeFileSync(absFname, pkgdata.files[fname]);
+        }
+        log("Finished!");
+          break;
       default:
         log(`Unkown command "${primaryCommand}"`);
         break;

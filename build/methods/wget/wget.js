@@ -4,12 +4,12 @@ export default class WgetMethod extends Method {
     super("wget-package");
   }
 
-  getPackage(src) {
+  getPackageJson(src) {
     var _this = this;
 
     return new Promise(async function (_resolve, _reject) {
       let url = await _this.resolve(src);
-      let response = await fetch(url);
+      let response = await fetch(url.remoteSrcDir + "/" + url.remoteSrcPkgFname);
       let result = await response.json();
 
       _resolve(result);
@@ -19,8 +19,15 @@ export default class WgetMethod extends Method {
   resolve(src) {
     return new Promise(async function (_resolve, _reject) {
       if (!src) _reject(`Cannot resolve package source "${src}"`);
+      let result = {
+        name: src,
+        remoteSrcDir: undefined,
+        //TODO
+        remoteSrcPkgFname: undefined //TODO
 
-      _resolve(src.toLowerCase());
+      };
+
+      _resolve(result);
     });
   }
 
