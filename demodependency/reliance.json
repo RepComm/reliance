@@ -1,7 +1,7 @@
 {
   "name": "demodependency",
   "dependencies": {
-    "repcomm/reliance": {
+    "repcomm/reliance/master/demodependency/reliance.json": {
       "method": "github"
     }
   }

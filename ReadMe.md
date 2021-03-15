@@ -28,3 +28,20 @@ Options
 # explicity use a specific package file (instead of reliance.json)
 -pkg=somefile.json
 ```
+
+Install a package from github:
+```bash
+# create your folder
+mkdir myproject
+
+# navigate into it
+cd myproject
+
+reliance i user/repo -method=github
+# or optionally specify branch
+reliance i user/repo/branch -method=github
+# or optionally specify branch and file
+reliance i user/repo/branch/some/file.json -method=github
+```
+
+Note: `-method=github` is only required if reliance has another default method set.
