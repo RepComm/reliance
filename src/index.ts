@@ -275,7 +275,8 @@ async function main() {
           mkdirSync(absDir, { recursive: true });
 
           absFname = path.join(writeDir, fname);
-          writeFileSync(absFname, pkgdata.files[fname]);
+          let buf = Buffer.from(pkgdata.files[fname]);
+          writeFileSync(absFname, buf);
         }
         log("Finished!");
           break;

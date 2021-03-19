@@ -1,8 +1,0 @@
-{
-  "name": "demodependency",
-  "dependencies": {
-    "repcomm/dynobj": {
-      "method": "github"
-    }
-  }
-}

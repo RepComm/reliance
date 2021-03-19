@@ -290,10 +290,11 @@ async function main() {
             recursive: true
           });
           absFname = path.join(writeDir, fname);
-          writeFileSync(absFname, pkgdata.files[fname]);
+          let buf = Buffer.from(pkgdata.files[fname]);
+          writeFileSync(absFname, buf);
         }
 
-        console.log("Downloaded package", JSON.stringify(pkgdata, null, 2));
+        log("Finished!");
         break;
 
       default:
