@@ -1,5 +1,5 @@
 
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import * as path from "path";
 import * as readline from "readline";
 
@@ -114,6 +114,14 @@ function getDependenciesDir (): string {
   return path.join(getWorkspaceDir(), "reliance");
 }
 
+function getDependencyDir (packageName: string): string {
+  return path.join(getDependenciesDir(), packageName);
+}
+
+function getDependencyRelianceFile (packageName: string, relianceFileName: string = "reliance.json"): string {
+  return path.join(getDependencyDir(packageName), relianceFileName);
+}
+
 /**A settings interface for reliance cli program*/
 interface Settings {
   /**The global default method for fetching sources*/
@@ -179,6 +187,55 @@ async function initPackage (flagArgs: FlagArguments): Promise<void> {
   });
 }
 
+/**Install a package by its id using the given repo method
+ * @param srcPackageFileName 
+ * @returns 
+ */
+async function installPackageResources (srcPackageFileName: string, method: Method): Promise<boolean> {
+  return new Promise(async (_resolve, _reject)=>{
+    let pkgdata = await method.getPackage(srcPackageFileName);
+
+    let writeDir = path.join(getDependenciesDir(), pkgdata.name);
+    mkdirSync(writeDir, { recursive: true });
+
+    let pkgpath = path.join(writeDir, pkgdata.pkgfname);
+    writeFileSyncJson(pkgpath, pkgdata.pkgjson);
+
+    let fnames = Object.keys(pkgdata.files);
+    let absFname: string;
+    let absDir: string;
+    for (let fname of fnames) {
+      absDir = path.join(writeDir, path.dirname(fname));
+      mkdirSync(absDir, { recursive: true });
+
+      absFname = path.join(writeDir, fname);
+      let buf = Buffer.from(pkgdata.files[fname]);
+      writeFileSync(absFname, buf);
+    }
+    log("Finished!");
+  });
+}
+
+async function getDependenciesNotInstalled (relianceJson: RelianceJson): Promise<string[]> {
+  return new Promise(async (_resolve, _reject)=>{
+    let deps = Object.keys(relianceJson.dependencies);
+    let result: string[] = [];
+    let fpath: string;
+
+    for (let dep of deps) {
+      fpath = getDependencyRelianceFile(dep);
+      
+      if (!existsSync(fpath)) {
+        console.log("Could not find", fpath);
+        result.push (dep);
+      }
+    }
+
+    // return result;
+    _resolve(result);
+  });
+}
+
 /**Main program*/
 async function main() {
   //Get command line arguments
@@ -237,7 +294,18 @@ async function main() {
       //for either `install` or `i`
       case "i":
       case "install":
-        if (args.length < 4) terminate(`Not enough arguments for install`);
+        if (args.length < 4) {
+          //TODO - install all packages not installed from reliance.json
+          // terminate(`Not enough arguments for install`);
+          let deps = await getDependenciesNotInstalled (targetPackage);
+          console.log("installing", deps.length, "packages:", ...deps);
+
+          for (let dep of deps) {
+            //todo - consider methods in reliance.json
+            installPackageResources(dep, method);
+          }
+          break;
+        }
         let packageName = args[3];
         
         if (isDependencyInstalled(targetPackage, packageName)) {
@@ -259,26 +327,8 @@ async function main() {
         };
         setRelianceJson(targetPackage);
         
-        let pkgdata = await method.getPackage(packageName);
-
-        let writeDir = path.join(getDependenciesDir(), pkgdata.name);
-        mkdirSync(writeDir, { recursive: true });
-
-        let pkgpath = path.join(writeDir, pkgdata.pkgfname);
-        writeFileSyncJson(pkgpath, pkgdata.pkgjson);
-
-        let fnames = Object.keys(pkgdata.files);
-        let absFname: string;
-        let absDir: string;
-        for (let fname of fnames) {
-          absDir = path.join(writeDir, path.dirname(fname));
-          mkdirSync(absDir, { recursive: true });
-
-          absFname = path.join(writeDir, fname);
-          let buf = Buffer.from(pkgdata.files[fname]);
-          writeFileSync(absFname, buf);
-        }
-        log("Finished!");
+        installPackageResources(packageName, method);
+        //TODO - send job to installPackage
           break;
       default:
         log(`Unkown command "${primaryCommand}"`);
